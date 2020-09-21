@@ -97,23 +97,23 @@ for i=1:150
 end
 x1=[]; x2=[]; x3=[]; x4=[];x5=[];
 for i=1:m
-    if tvalid(1,i)
+    if trial(1,i)
         x1 = cat(3,x1,X(:,:,i));
     end
-    if tvalid(2,i)
+    if trial(2,i)
         x2 = cat(3,x2,X(:,:,i));
     end
-    if tvalid(3,i)
-        x3 = cat(3,xv3,X(:,:,i));
+    if trial(3,i)
+        x3 = cat(3,x3,X(:,:,i));
     end
-    if tvalid(4,i)
-        x4 = cat(3,xv4,X(:,:,i));
+    if trial(4,i)
+        x4 = cat(3,x4,X(:,:,i));
     end
-    if tvalid(5,i)
-        x5 = cat(3,xv5,X(:,:,i));
+    if trial(5,i)
+        x5 = cat(3,x5,X(:,:,i));
     end
 end
-%%
+%% Calculating covariance matrix
 S1 = zeros(64);
 S2 = zeros(64);
 for i=1:m/5
