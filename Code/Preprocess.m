@@ -78,7 +78,7 @@ periodogram(X(:,10,2),[],400,128)
 clc
 
 xv1=[]; xv2=[]; xv3=[]; xv4=[];xv5=[];
-for i=1:150
+for i=1:750
     if tvalid(1,i)
         xv1 = cat(3,xv1,Xv(:,:,i));
     end
