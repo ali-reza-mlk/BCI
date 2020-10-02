@@ -1,46 +1,51 @@
 clc
 
-xtrain = cat(3,real(K1),real(K2));
-xtrain = reshape(abs(xtrain),[52 52 1 1800]);
+a=34; %%%% cropping matrix
+b=65;
+c=1;
+d=32;
+xtrain = q(a:b,c:d,1,:);
+xval = qv(a:b,c:d,1,:);
+
 ytrain = categorical(cat(1,zeros(900,1),ones(900,1)));
-xvalid = cat(3,real(Kv1),real(Kv2));
-xvalid = reshape(abs(xvalid),[52 52 1 300]);
-yvalid = categorical(cat(1,zeros(150,1),ones(150,1)));
+
+yval = categorical(cat(1,zeros(150,1),ones(150,1)));
 
 layers = [
-    imageInputLayer([52 52 1])
+    imageInputLayer([b-a+1  b-a+1 1],'Name','input')
+        
+    convolution2dLayer(4,10,'Padding','same','Name','conv_1')
+    batchNormalizationLayer('Name','BN_1')
+    reluLayer('Name','relu_1')
+    maxPooling2dLayer(4,'stride',4,'Name','maxpool_1')
     
-    convolution2dLayer(5,5,'Padding','same')
-    batchNormalizationLayer
-    reluLayer
+    convolution2dLayer(3,10,'Padding','same','Name','conv_2')
+    batchNormalizationLayer('Name','BN_2')
+    reluLayer('Name','relu_2')
     
-    maxPooling2dLayer(2)
+    maxPooling2dLayer(4,'stride',4,'Name','maxpool_2')
     
-    convolution2dLayer(5,5,'Padding','same')
-    batchNormalizationLayer
-    reluLayer
+    convolution2dLayer(3,5,'Padding','same','Name','conv_3')
+    batchNormalizationLayer('Name','BN_3')
+    reluLayer('Name','relu_3')
     
-    maxPooling2dLayer(2)
-    
-    convolution2dLayer(5,5,'Padding','same')
-    batchNormalizationLayer
-    reluLayer
-    
-    fullyConnectedLayer(2)
-    softmaxLayer
-    classificationLayer]
+    globalAveragePooling2dLayer('Name','globpool_1')
+    fullyConnectedLayer(2,'Name','fc')
+    softmaxLayer('Name','softmax')
+    classificationLayer('Name','classOutput')]
+
 
 
 options = trainingOptions('sgdm', ...
-    'InitialLearnRate',0.05, ...
-    'MaxEpochs',4, ...
+    'InitialLearnRate',0.1, ...
+    'LearnRateSchedule','piecewise', ...
+    'LearnRateDropFactor',0.9, ...
+    'LearnRateDropPeriod',5, ...
+    'ValidationData',{xval,yval}, ...
+    'MaxEpochs',100, ...
     'Shuffle','every-epoch', ...
-    'ValidationData',{xvalid,yvalid}, ...
-    'ValidationFrequency',30, ...
-    'Verbose',false, ...
+    'ValidationFrequency',20, ...
+    'Verbose',true, ...
     'Plots','training-progress');
-
-
-
 
 net = trainNetwork(xtrain, ytrain,layers,options);
