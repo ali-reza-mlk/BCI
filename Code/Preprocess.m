@@ -2,7 +2,7 @@
 clc
 close all
 clear
-[~,path] = uigetfile;
+[~,path] = uigetfile; %%%% path of training Dataset
 
 x=[]; trial=[];
 
@@ -19,7 +19,7 @@ trial = cat(2,trial,Data.epo_train.y);
 end
 t = Data.epo_train.t;
 %% Vlidation data
-[~,path] = uigetfile;
+[~,path] = uigetfile; %%%% path of validation Dataset
 xvalid = []; tvalid=[];
 for i=1:9
 Data = load([path,'\Data_Sample0',num2str(i)]);
@@ -33,47 +33,38 @@ tvalid = cat(2,tvalid,Data.epo_validation.y);
 end
 
 %% Filter
-load('LPF45'); load('HPF1');
-
-figure
-subplot(2,1,1)
-plot(t,x(:,10,2))
-subplot(2,1,2)
-periodogram(x(:,10,2),[],795,256)
-
+load('MBF');
+fvtool(MBF)
 %%%%%% Perprocess
 [l,n,m]=size(x);
-X = zeros(ceil(l/2),n,m);
+X = zeros(l,n,m);
 for i=1:64
-    for j=1:m
-        filX = conv(LPF45,x(:,i,j)');
-        filX = filX(109:end-108);
-        filX = downsample(filX,2);
-        filX = conv(HPF1,filX);
-        filX = filX(123:end-122);
-        X(:,i,j) = filX;
+    for j=1:15
+        z = reshape(x(:,i,(j-1)*300+1:j*300),[l*300,1]);
+        filX = conv(MBF,z');
+        filX = filX(126:end-125);
+        X(:,i,(j-1)*300+1:j*300) = reshape(filX,[l,300]);
     end
 end
 
 [lv,nv,mv]=size(xvalid);
-Xv = zeros(ceil(lv/2),nv,mv);
+Xv = zeros(lv,nv,mv);
 for i=1:64
-    for j=1:mv
-        filX = conv(LPF45,xvalid(:,i,j)');
-        filX = filX(109:end-108);
-        filX = downsample(filX,2);
-        filX = conv(HPF1,filX);
-        filX = filX(123:end-122);
-        Xv(:,i,j) = filX;
+    for j=1:15
+        z = reshape(xvalid(:,i,(j-1)*50+1:j*50),[lv*50,1]);
+        filX = conv(MBF,z');
+        filX = filX(126:end-125);
+        Xv(:,i,(j-1)*50+1:j*50) = reshape(filX,[l,50]);
     end
 end
 
 figure
-subplot(2,1,1)
-plot(downsample(t,2),X(:,10,2))
-subplot(2,1,2)
-periodogram(X(:,10,2),[],400,128)
 
+subplot(2,1,1)
+plot(t,Xv(:,1,1))
+subplot(2,1,2)
+periodogram(Xv(:,1,1),[],400,256)
+sgtitle('filtered signal')
 %% Separate
 clc
 
@@ -95,6 +86,7 @@ for i=1:750
         xv5 = cat(3,xv5,Xv(:,:,i));
     end
 end
+
 x1=[]; x2=[]; x3=[]; x4=[];x5=[];
 for i=1:m
     if trial(1,i)
@@ -113,39 +105,34 @@ for i=1:m
         x5 = cat(3,x5,X(:,:,i));
     end
 end
-%% Calculating covariance matrix
+%% CSP
 S1 = zeros(64);
 S2 = zeros(64);
 for i=1:m/5
-    S1 = S1+x1(:,:,i)'*x1(:,:,i);
-    S2 = S2+x2(:,:,i)'*x2(:,:,i);
+    S1 = S1+x2(65:end-64,:,i)'*x2(65:end-64,:,i);
+    S2 = S2+x4(65:end-64,:,i)'*x4(65:end-64,:,i);
 end
-S1 = S1/i;
+S1 = S1/i; %%%% mean cov
 S2 = S2/i;
 
-P = (S1+S2)^-.5;
+P = (S1+S2)^-.5; %%%% Whitening
 Sp1 = P*S1*P';
 Sp2 = P*S2*P';
 
-[~,Si1,Si2] = D2epo(x1,x2); %% 2 epochs for deflation_divCSP
 
-%%
-d=24; % number of outputs' channels
-Vk = KLsub_divCSP(P,Sp1,Sp2,Si1,Si2,d); 
-
-%V = deflation_divCSP(x1,x2,Sp1,Sp2,10);
+V = deflation_divCSP(x2(65:end-64,:,:),x4(65:end-64,:,:),Sp1,Sp2,3);
 %% Functions
 
 function V = KLsub_divCSP(P,Sp1,Sp2,Si1,Si2,d)
     
     D = length(Sp1);
     l = .5;
-    t=.001; % Change untile convergence
+    t=.01; % Change untile convergence
     Id = eye(d,D);
     R = eye(D);
     
     e=[0.1,0];
-    while e(1)>1e-8 && e(1)<1
+    while e(1)>1e-13 && e(1)<1
         
         L = KLdivCSP_ws(Sp1,Sp2,Si1,Si2,R,d,l);
         for m=1:D
@@ -225,7 +212,7 @@ function V = deflation_divCSP(x1,x2,Sp1,Sp2,d)
             p=P;
         end
         w = KLsub_divCSP(P,Sp1,Sp2,Si1,Si2,1);
-        disp(size(w))
+        
         W = null(w');
         Sp1 = W'*Sp1*W;
         Sp2 = W'*Sp2*W;
